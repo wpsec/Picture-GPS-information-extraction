@@ -2,6 +2,14 @@
 图片GPS信息提取
 
 
+
+依赖
+```bash
+pip install -r requirements.txt
+```
+
+
+
 单张图片获取
 
 ```python
