@@ -1,5 +1,5 @@
 # Picture-GPS-information-extraction
-图片GPS信息提取,网站图片爬取，批量处理
+图片GPS信息提取，网站图片爬取，批量处理
 
 
 
