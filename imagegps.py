@@ -81,14 +81,25 @@ def image_info(path):
 		time = path['Image DateTime']
 	except:
 		time = '没有找到时间信息'
+	try:
+		lensmodel = path['EXIF LensModel']
+	except:
+		lensmodel = '没有找到拍摄设备'
+	try:
+		imagmake = path['Image Make']
+	except:
+		imagmake = '没有找到设备品牌'
+
 	time = str(time)
 	flag = str(flag)
 	gpsjingdu = remove_k(gpsjingdu)
 	gpsweidu = remove_k(gpsweidu)
-	if (time == '没有找到时间信息') and (flag == '没有找到标识') and (gpsweidu == '没有找到纬度信息') and (gpsjingdu == '没有找到经度信息'):
+	lensmodel = str(lensmodel)
+	imagmake = str(imagmake)
+	if (time == '没有找到时间信息') and (flag == '没有找到标识') and (gpsweidu == '没有找到纬度信息') and (gpsjingdu == '没有找到经度信息') and (lensmodel == '没有找到拍摄设备') and (imagmake == '没有找到设备品牌'):
 		print '[-] 没有找到信息'
 	else:
-		print '拍摄时间：' + time + ' 经度：' + gpsjingdu + ' 纬度：' + gpsweidu + ' 标识：' + flag
+		print '拍摄时间：' + time + ' 经度：' + gpsjingdu + ' 纬度：' + gpsweidu  + ' 拍摄设备信息：' + imagmake + ' ' + lensmodel + ' 标识：' + flag
 	info = [
 			gpsjingdu,
 			gpsweidu,
@@ -111,38 +122,49 @@ def requeimage(url):
 		ulist = []
 		r = requests.get(url,headers = {'user-agent': 'Mozilla/5.0'})
 		status = r.status_code
-		if status != 200:
-			print "无法访问"
+		if (status == 404):
+			print '网络不可达'
 			exit(0)
-		soup = BeautifulSoup(r.text, 'html.parser')
-		alist = soup.find_all('img')
+		elif (status == 301):
+			print '跳转'
+			exit(0)
+		elif (status == 200):
+			soup = BeautifulSoup(r.text, 'html.parser')
+			alist = soup.find_all('img')
 		# print alist
-		for i in alist:
-			ulist.append(i.attrs['src'])   # 索引src 添加到ulist列表
-		dir = '/home/python/gpsimage/'
-		if not os.path.exists(dir):     # 创建路径
-			os.mkdir(dir)
-		for image in ulist:             # 取图名
-			image_name = dir + image.split(r'/')[-1]    # 解析图片名称
+			for i in alist:
+				ulist.append(i.attrs['src'])   # 索引src 添加到ulist列表
+			dir = '/home/python/gpsimage/'
+			if not os.path.exists(dir):     # 创建路径
+				os.mkdir(dir)
+			for image in ulist:             # 取图名
+				image_name = dir + image.split(r'/')[-1]    # 解析图片名称
 			# print image
 			# 判断绝对路径相对路径
-			urls = url
-			if (urls[0] == image[0]) and (urls[1] == image[1]) and (urls[2] == image[2]) and (urls[3] == image[3]):
-				print "正在下载：" + str(image)
-			else:
-				print "正在下载：" + str(url) + str(image)
+				urls = url
+				if (urls[0] == image[0]) and (urls[1] == image[1]) and (urls[2] == image[2]) and (urls[3] == image[3]):
+					print "正在下载：" + str(image)
+				else:
+					print "正在下载：" + str(url) + str(image)
 			# 判断是否已经下载
-			if not os.path.exists(image_name):
-				img = requests.get(url + image)
-				with open(image_name,'wb') as f:
-					f.write(img.content)
-			else:
-				print "图片已存在"
-		print "已下载完成，开始提取信息"
+				if not os.path.exists(image_name):
+					img = requests.get(url + image)
+					status = img.status_code
+					if (status == 404):
+						print '404 网络不可达'
+						# exit(0)
+					elif (status == 301):
+						print '301 跳转'
+						# exit(0)
+					elif (status == 200):
+						with open(image_name,'wb') as f:
+							f.write(img.content)
+				else:
+					print "图片已存在"
+			print "已下载完成，开始提取信息"
 
-		return dir
+			return dir
 	except:
-		print '网络错误或无法打开'
 		exit(0)
 
 
@@ -157,10 +179,14 @@ def get_gps(new_info):
 	r = requests.get(url)
 	conn = r.content.decode('utf-8')
 	status = r.status_code
-	if status != 200:
+	print status
+	if (status == 404):
 		print 'key失效或网络不通'
 		exit(0)
-	else:
+	elif (status == 301):
+		print '跳转'
+		exit(0)
+	elif (status == 200):
 		info = conn.encode('unicode-escape').decode('string_escape')
 		info = json.loads(info)
 		# print info
@@ -192,6 +218,7 @@ def main():
 				path = exifread.process_file(fp)
 				print image
 				info = image_info(path)
+				# print path
 				new_info = gps_format(info)
 				gps = get_gps(new_info)
 				print '\033[0;31;40m [+] \033[0m' + '国家：' + gps[0] + ' 地区：' + gps[1]
@@ -200,8 +227,12 @@ def main():
 		elif(options.url != None):
 			urls = str(options.url)
 			dir = requeimage(urls)
+			if dir == None:
+				print '没有爬取到信息'
+				exit(0)
 			list = os.listdir(dir)
 			# print list
+
 			for img in list:
 				listdir = dir + img
 				print img
